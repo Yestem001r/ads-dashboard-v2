@@ -48,7 +48,7 @@ const Analytics = () => {
     setLoading(true);
     try {
       const [analyticsRes, settingsRes] = await Promise.all([
-        axios.post('${API_URL}/api/analytics/fetch', {
+        axios.post(`${API_URL}/api/analytics/fetch`, {
           dateFrom: fmt(from), dateTo: fmt(to), userId: user.id, level: lvl
         }),
         axios.get(`${API_URL}/api/settings/${user.id}`)

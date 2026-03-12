@@ -52,11 +52,11 @@ const Dashboard = () => {
       const prevStart = new Date(startDate.getTime() - rangeMs - 86400000);
 
       const [curr, prev] = await Promise.all([
-        axios.post('${API_URL}/api/analytics/fetch', {
+        axios.post(`${API_URL}/api/analytics/fetch`, {
           source, dateFrom: fmt(startDate), dateTo: fmt(endDate), userId: user.id, level: 'campaign',
           saveSnapshot: true
         }),
-        axios.post('${API_URL}/api/analytics/fetch', {
+        axios.post(`${API_URL}/api/analytics/fetch`, {
           source, dateFrom: fmt(prevStart), dateTo: fmt(prevEnd), userId: user.id, level: 'campaign'
         }),
       ]);
@@ -72,7 +72,7 @@ const Dashboard = () => {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get('${API_URL}/api/analytics/history', {
+      const res = await axios.get(`${API_URL}/api/analytics/history`, {
         params: { userId: user.id, source, level: 'campaign', days: 30 }
       });
       setHistory(res.data.data || []);
@@ -128,7 +128,7 @@ const Dashboard = () => {
     const fmt = (d) => d.toISOString().split('T')[0];
     setInsightsLoading(true);
     setInsightsError(null);
-    axios.post('${API_URL}/api/insights/generate', {
+    axios.post(`${API_URL}/api/insights/generate`, {
       userId: user.id,
       source,
       currentMetrics: { ...metrics, dateFrom: fmt(startDate), dateTo: fmt(endDate) }

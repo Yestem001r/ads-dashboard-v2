@@ -30,7 +30,7 @@ const CampaignDetail = () => {
     setLoading(true);
     try {
       const [analyticsRes, settingsRes] = await Promise.all([
-        axios.post('${API_URL}/api/analytics/fetch', {
+        axios.post(`${API_URL}/api/analytics/fetch`, {
           dateFrom: fmt(startDate), dateTo: fmt(endDate), userId: user.id, level: 'adgroup'
         }),
         axios.get(`${API_URL}/api/settings/${user.id}`)

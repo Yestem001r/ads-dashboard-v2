@@ -97,7 +97,7 @@ const Settings = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await axios.post('${API_URL}/api/settings/save', { userId: user.id, settings });
+      await axios.post(`${API_URL}/api/settings/save`, { userId: user.id, settings });
       localStorage.setItem(`adcore_budget_${user.id}`, JSON.stringify({
         google: Number(settings.googleBudget || 0),
         meta:   Number(settings.metaBudget   || 0),
@@ -113,7 +113,7 @@ const Settings = () => {
 
   const handleDisconnect = async () => {
     try {
-      await axios.post('${API_URL}/api/google/disconnect', { userId: user.id });
+      await axios.post(`${API_URL}/api/google/disconnect`, { userId: user.id });
       setSettings(s => ({ ...s, googleConnected: false, googleId: '', googleLoginId: '' }));
       setGoogleAccounts([]);
       setOauthStatus(null);

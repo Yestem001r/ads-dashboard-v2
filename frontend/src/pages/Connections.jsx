@@ -23,7 +23,7 @@ const Connections = () => {
     setLoading(true);
     try {
       const dateTo = new Date().toISOString().split('T')[0];
-      const response = await axios.post('${API_URL}/api/analytics/fetch', {
+      const response = await axios.post(`${API_URL}/api/analytics/fetch`, {
         dateFrom: '2024-01-01',
         dateTo,
         userId: user.id,
