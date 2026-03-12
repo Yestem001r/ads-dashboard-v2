@@ -21,7 +21,6 @@ const Login = () => {
     if (isSignUp) {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
-      else navigate('/');
       else setMessage('Check your email for a confirmation link.');
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
