@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Marketing Engine | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #f4f4f5; }
+        .glass-card { background: #121214; border: 1px solid #27272a; transition: all 0.2s; }
+        .glass-card:hover { border-color: #3f3f46; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .active-tab { background: #2563eb !important; color: white !important; border-color: #2563eb !important; }
+        .btn-filter { background: #18181b; color: #a1a1aa; border: 1px solid #27272a; }
+        .btn-filter:hover { color: #fff; border-color: #52525b; }
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+
+    <div class="max-w-[1400px] mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white">Ad Engine <span class="text-blue-500">Analytics</span></h1>
+                <p class="text-zinc-500 mt-1">Единая панель управления Google Ads и Meta Ads</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="fetchData()" id="syncBtn" class="bg-white text-black hover:bg-zinc-200 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-white/5">
+                    Синхронизировать
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div class="glass-card p-6 rounded-2xl">
+                <p class="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Общий расход</p>
+                <h3 id="w-spend" class="text-3xl font-black tabular-nums">$0.00</h3>
+            </div>
+            <div class="glass-card p-6 rounded-2xl border-l-4 border-l-blue-600">
+                <p class="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Всего кликов</p>
+                <h3 id="w-clicks" class="text-3xl font-black tabular-nums">0</h3>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <p class="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Средний CTR</p>
+                <h3 id="w-ctr" class="text-3xl font-black text-blue-400 tabular-nums">0.00%</h3>
+            </div>
+            <div class="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500">
+                <p class="text-[10px] uppercase tracking-widest font-bold text-zinc-500 mb-2">Конверсии (Leads)</p>
+                <h3 id="w-conv" class="text-3xl font-black text-emerald-400 tabular-nums">0</h3>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div class="flex bg-zinc-900/50 p-1 rounded-xl border border-zinc-800">
+                <button onclick="setSource('all')" id="btn-all" class="btn-filter active-tab px-5 py-2 rounded-lg text-xs font-bold transition-all">ALL SOURCES</button>
+                <button onclick="setSource('google')" id="btn-google" class="btn-filter px-5 py-2 rounded-lg text-xs font-bold transition-all ml-1">GOOGLE ADS</button>
+                <button onclick="setSource('meta')" id="btn-meta" class="btn-filter px-5 py-2 rounded-lg text-xs font-bold transition-all ml-1">META ADS</button>
+            </div>
+            <div class="text-xs text-zinc-500 font-medium italic" id="status-text">Последнее обновление: Никогда</div>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-zinc-900/50 border-b border-zinc-800">
+                            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Источник</th>
+                            <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Кампания</th>
+                            <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500">Показы</th>
+                            <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500">Клики</th>
+                            <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500">CTR</th>
+                            <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500">Conv</th>
+                            <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-wider text-zinc-500 bg-white/5">Расход ↓</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-zinc-800">
+                        <tr>
+                            <td colspan="7" class="px-6 py-20 text-center text-zinc-600">Нажмите «Синхронизировать» для загрузки данных</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSource = 'all';
+
+        function setSource(src) {
+            currentSource = src;
+            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active-tab'));
+            document.getElementById('btn-' + src).classList.add('active-tab');
+            fetchData();
+        }
+
+        async function fetchData() {
+            const btn = document.getElementById('syncBtn');
+            btn.innerText = 'Загрузка...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/analytics/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source: currentSource })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    renderTable(result.data);
+                    updateWidgets(result.data);
+                    document.getElementById('status-text').innerText = 'Последнее обновление: ' + new Date().toLocaleTimeString();
+                }
+            } catch (err) {
+                alert('Ошибка сети: ' + err.message);
+            } finally {
+                btn.innerText = 'Синхронизировать';
+                btn.disabled = false;
+            }
+        }
+
+        function renderTable(data) {
+            const body = document.getElementById('table-body');
+            if (data.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" class="px-6 py-20 text-center text-zinc-600">Нет данных за этот период</td></tr>';
+                return;
+            }
+
+            body.innerHTML = data.map(row => `
+                <tr class="hover:bg-white/[0.02] transition-colors group">
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter ${row.source === 'Google' ? 'bg-blue-500/10 text-blue-500' : 'bg-pink-500/10 text-pink-500'}">
+                            ${row.source}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 font-semibold text-zinc-200">${row.name}</td>
+                    <td class="px-6 py-4 text-right tabular-nums text-zinc-500 text-xs">${row.impressions.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-right tabular-nums text-zinc-300 font-medium">${row.clicks.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-right tabular-nums text-blue-400 font-semibold">${row.ctr.toFixed(2)}%</td>
+                    <td class="px-6 py-4 text-right tabular-nums text-emerald-400 font-bold">${row.conversions}</td>
+                    <td class="px-6 py-4 text-right tabular-nums font-black text-white bg-white/[0.02] tracking-tight">$${row.spend.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateWidgets(data) {
+            const t = data.reduce((acc, cur) => ({
+                s: acc.s + cur.spend,
+                cl: acc.cl + cur.clicks,
+                im: acc.im + cur.impressions,
+                cv: acc.cv + cur.conversions
+            }), {s:0, cl:0, im:0, cv:0});
+
+            document.getElementById('w-spend').innerText = '$' + t.s.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('w-clicks').innerText = t.cl.toLocaleString();
+            document.getElementById('w-conv').innerText = t.cv.toLocaleString();
+            document.getElementById('w-ctr').innerText = (t.im > 0 ? (t.cl/t.im*100) : 0).toFixed(2) + '%';
+        }
+    </script>
+</body>
+</html>

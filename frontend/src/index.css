@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+:root {
+  /* Accent color (user-configurable from Settings) */
+  --accent-color: #3b82f6;
+
+  /* Radius scale */
+  --radius: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Monospace font */
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', monospace;
+
+  /* Semantic colors */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-google: #4285f4;
+  --color-meta: #8b5cf6;
+
+  /* DARK THEME (default) */
+  --bg-base: #0a0a0b;
+  --bg-surface: #111113;
+  --bg-surface-hover: #17171a;
+  --bg-surface-active: #1e1e22;
+
+  --border-subtle: #18181b;
+  --border-strong: #1e1e22;
+
+  --text-main: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+
+  /* Toggle/segment control */
+  --toggle-wrapper-bg: #000000;
+  --toggle-btn-active: #1e1e22;
+  --toggle-text: #52525b;
+  --toggle-text-active: #fafafa;
+
+  /* Charts */
+  --chart-grid: #18181b;
+  --chart-axis: #27272a;
+  --chart-tooltip-bg: #111113;
+}
+
+body.light-theme {
+  /* LIGHT THEME */
+  --bg-base: #f4f4f5;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f9fafb;
+  --bg-surface-active: #f3f4f6;
+
+  --border-subtle: #e4e4e7;
+  --border-strong: #e4e4e7;
+
+  --text-main: #09090b;
+  --text-secondary: #3f3f46;
+  --text-muted: #a1a1aa;
+
+  --toggle-wrapper-bg: #f3f4f6;
+  --toggle-btn-active: #ffffff;
+  --toggle-text: #6b7280;
+  --toggle-text-active: #09090b;
+
+  --chart-grid: #f3f4f6;
+  --chart-axis: #e5e7eb;
+  --chart-tooltip-bg: #ffffff;
+}
+
+/* Base */
+body {
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Theme utility classes */
+.theme-bg-base        { background-color: var(--bg-base);          transition: background-color 0.3s ease; }
+.theme-bg-surface     { background-color: var(--bg-surface);       transition: background-color 0.3s ease; }
+.theme-bg-surface-hover:hover { background-color: var(--bg-surface-hover); }
+.theme-bg-surface-active      { background-color: var(--bg-surface-active); transition: background-color 0.3s ease; }
+.theme-border-subtle  { border-color: var(--border-subtle);        transition: border-color 0.3s ease; }
+.theme-border-strong  { border-color: var(--border-strong);        transition: border-color 0.3s ease; }
+.theme-text-main      { color: var(--text-main);                   transition: color 0.3s ease; }
+.theme-text-secondary { color: var(--text-secondary);              transition: color 0.3s ease; }
+.theme-text-muted     { color: var(--text-muted);                  transition: color 0.3s ease; }
+
+/* ─── Design system component classes ─── */
+
+/* Card: standard container */
+.card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Input field */
+.input-field {
+  width: 100%;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.625rem 0.875rem;
+  color: var(--text-main);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
+}
+.input-field::placeholder { color: var(--text-muted); }
+.input-field:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
+}
+
+/* Primary button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: var(--accent-color);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-primary:hover  { opacity: 0.9; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Ghost button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.btn-ghost:hover { background-color: var(--bg-surface-active); color: var(--text-main); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius);
+}
+.badge-google  { background-color: color-mix(in srgb, var(--color-google)  12%, transparent); color: var(--color-google); }
+.badge-meta    { background-color: color-mix(in srgb, var(--color-meta)    12%, transparent); color: var(--color-meta); }
+.badge-success { background-color: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); border: 1px solid color-mix(in srgb, var(--color-success) 20%, transparent); }
+.badge-error   { background-color: color-mix(in srgb, var(--color-error)   12%, transparent); color: var(--color-error);   border: 1px solid color-mix(in srgb, var(--color-error)   20%, transparent); }
+.badge-warning { background-color: color-mix(in srgb, var(--color-warning) 12%, transparent); color: var(--color-warning); }
+
+/* Monospace numbers */
+.mono { font-family: var(--font-mono); }
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar       { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
+
+/* Section label — standard uppercase label pattern */
+.label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
