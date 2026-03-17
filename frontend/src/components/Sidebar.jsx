@@ -11,10 +11,10 @@ const Sidebar = () => {
   const { signOut } = useAuth();
 
   const menuItems = [
-    { icon: <LayoutDashboard size={16} />, label: 'Dashboard',   path: '/', end: true },
-    { icon: <BarChart2 size={16} />,       label: 'Analytics',   path: '/analytics' },
-    { icon: <Link2 size={16} />,           label: 'Connections', path: '/connections' },
-    { icon: <Settings size={16} />,        label: 'Settings',    path: '/settings' },
+    { icon: <LayoutDashboard size={16} />, label: 'Dashboard',   path: '/dashboard', end: true },
+    { icon: <BarChart2 size={16} />,       label: 'Analytics',   path: '/dashboard/analytics' },
+    { icon: <Link2 size={16} />,           label: 'Connections', path: '/dashboard/connections' },
+    { icon: <Settings size={16} />,        label: 'Settings',    path: '/dashboard/settings' },
   ];
 
   return (

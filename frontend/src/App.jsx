@@ -9,6 +9,8 @@ import Analytics from './pages/Analytics';
 import Connections from './pages/Connections';
 import Login from './pages/Login';
 import CampaignDetail from './pages/CampaignDetail';
+import Landing from './pages/Landing';
+import Privacy from './pages/Privacy';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -21,8 +23,10 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/*" element={
+          <Route path="/dashboard/*" element={
             <ProtectedRoute>
               <Layout>
                 <Routes>
