@@ -587,5 +587,16 @@ app.post('/api/google/disconnect', async (req, res) => {
     }
 });
 
+// Serve frontend static files
+const path = require('path');
+const fs = require('fs');
+const frontendDist = path.join(__dirname, 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    app.get('*', (_req, res) => {
+        res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server Running on Port ${PORT}`));
