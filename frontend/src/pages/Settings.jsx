@@ -84,11 +84,11 @@ const Settings = () => {
     if (oauth === 'success') {
       setOauthStatus('success');
       fetchSettings();
-      window.history.replaceState({}, '', '/settings');
+      window.history.replaceState({}, '', '/dashboard/settings');
     } else if (oauth === 'error') {
       setOauthStatus('error');
       setOauthMsg(params.get('msg') || 'OAuth failed');
-      window.history.replaceState({}, '', '/settings');
+      window.history.replaceState({}, '', '/dashboard/settings');
     }
   }, []);
 

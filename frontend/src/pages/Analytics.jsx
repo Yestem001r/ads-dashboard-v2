@@ -256,7 +256,7 @@ const Analytics = () => {
                   key={i}
                   className="transition-colors duration-100"
                   style={{ borderBottom: '1px solid var(--border-subtle)', cursor: clickable ? 'pointer' : 'default' }}
-                  onClick={() => clickable && navigate(`/campaign/${encodeURIComponent(row.name)}`)}
+                  onClick={() => clickable && navigate(`/dashboard/campaign/${encodeURIComponent(row.name)}`)}
                   onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)'}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                 >
