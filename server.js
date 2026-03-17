@@ -539,6 +539,9 @@ app.get('/api/google/accounts', async (req, res) => {
 
     if (!db?.google_refresh_token) return res.json({ success: true, accounts: [] });
 
+    const withTimeout = (promise, ms) =>
+        Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
     try {
         const client = new GoogleAdsApi({
             client_id:       process.env.GOOGLE_ADS_CLIENT_ID,
@@ -546,14 +549,18 @@ app.get('/api/google/accounts', async (req, res) => {
             developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
         });
 
-        const { resource_names } = await client.listAccessibleCustomers(db.google_refresh_token);
+        const { resource_names } = await withTimeout(
+            client.listAccessibleCustomers(db.google_refresh_token),
+            10000
+        );
 
         const accounts = await Promise.all((resource_names || []).map(async (rn) => {
             const customerId = rn.replace('customers/', '');
             try {
                 const customer = client.Customer({ customer_id: customerId, refresh_token: db.google_refresh_token });
-                const [details] = await customer.query(
-                    `SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`
+                const [details] = await withTimeout(
+                    customer.query(`SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`),
+                    5000
                 );
                 return {
                     id:        customerId,
