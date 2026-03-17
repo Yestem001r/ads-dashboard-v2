@@ -472,7 +472,7 @@ app.get('/oauth/google/start', async (req, res) => {
     if (!userId) return res.status(400).send('Missing userId');
 
     if (!process.env.GOOGLE_ADS_CLIENT_ID) {
-        return res.redirect(`${FRONTEND_URL}/settings?oauth=error&msg=${encodeURIComponent('Platform Google credentials not configured')}`);
+        return res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=error&msg=${encodeURIComponent('Platform Google credentials not configured')}`);
     }
 
     const params = new URLSearchParams({
@@ -493,10 +493,10 @@ app.get('/oauth/callback', async (req, res) => {
     const { code, state: userId, error: oauthError } = req.query;
 
     if (oauthError) {
-        return res.redirect(`${FRONTEND_URL}/settings?oauth=error&msg=${encodeURIComponent(oauthError)}`);
+        return res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=error&msg=${encodeURIComponent(oauthError)}`);
     }
     if (!code || !userId) {
-        return res.redirect(`${FRONTEND_URL}/settings?oauth=error&msg=${encodeURIComponent('Missing code or state')}`);
+        return res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=error&msg=${encodeURIComponent('Missing code or state')}`);
     }
 
     try {
@@ -511,7 +511,7 @@ app.get('/oauth/callback', async (req, res) => {
         const { refresh_token } = response.data;
 
         if (!refresh_token) {
-            return res.redirect(`${FRONTEND_URL}/settings?oauth=error&msg=${encodeURIComponent('No refresh token returned — try revoking app access at myaccount.google.com and retry')}`);
+            return res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=error&msg=${encodeURIComponent('No refresh token returned — try revoking app access at myaccount.google.com and retry')}`);
         }
 
         await supabaseAdmin.from('user_settings').upsert(
@@ -519,10 +519,10 @@ app.get('/oauth/callback', async (req, res) => {
             { onConflict: 'user_id' }
         );
 
-        res.redirect(`${FRONTEND_URL}/settings?oauth=success`);
+        res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=success`);
     } catch (err) {
         const msg = err.response?.data?.error_description || err.message;
-        res.redirect(`${FRONTEND_URL}/settings?oauth=error&msg=${encodeURIComponent(msg)}`);
+        res.redirect(`${FRONTEND_URL}/dashboard/settings?oauth=error&msg=${encodeURIComponent(msg)}`);
     }
 });
 

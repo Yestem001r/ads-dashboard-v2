@@ -177,7 +177,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-warning) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warning) 20%, transparent)' }}>
           <AlertCircle size={13} style={{ color: 'var(--color-warning)', flexShrink: 0 }} />
           <span className="text-xs font-semibold" style={{ color: 'var(--color-warning)' }}>
-            One or more ad sources have connection issues. Check <a href="/connections" className="underline">Connections</a>.
+            One or more ad sources have connection issues. Check <a href="/dashboard/connections" className="underline">Connections</a>.
           </span>
         </div>
       )}
@@ -220,7 +220,7 @@ const Dashboard = () => {
               Connect Google Ads or Meta Ads to start seeing your campaign performance.
             </p>
           </div>
-          <a href="/settings" className="btn-primary">Go to Settings →</a>
+          <a href="/dashboard/settings" className="btn-primary">Go to Settings →</a>
         </div>
       )}
 

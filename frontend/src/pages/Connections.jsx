@@ -79,7 +79,7 @@ const Connections = () => {
           error={health.google?.error}
           lastSync={health.google?.lastSync}
           flags={googleFlags}
-          onConfigure={() => navigate('/settings')}
+          onConfigure={() => navigate('/dashboard/settings')}
           icon={<div className="w-8 h-8 rounded-md flex items-center justify-center font-bold text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-google) 12%, transparent)', color: 'var(--color-google)', border: '1px solid color-mix(in srgb, var(--color-google) 20%, transparent)' }}>G</div>}
         />
         <ConnectionCard
@@ -89,7 +89,7 @@ const Connections = () => {
           error={health.meta?.error}
           lastSync={health.meta?.lastSync}
           flags={metaFlags}
-          onConfigure={() => navigate('/settings')}
+          onConfigure={() => navigate('/dashboard/settings')}
           icon={<div className="w-8 h-8 rounded-md flex items-center justify-center font-bold text-sm" style={{ backgroundColor: 'color-mix(in srgb, var(--color-meta) 12%, transparent)', color: 'var(--color-meta)', border: '1px solid color-mix(in srgb, var(--color-meta) 20%, transparent)' }}>M</div>}
         />
       </div>
