@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Settings, Link2, BarChart2,
-  LogOut, Zap, ChevronLeft
+  LogOut, Zap, ChevronLeft, Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +14,7 @@ const Sidebar = () => {
     { icon: <LayoutDashboard size={16} />, label: 'Dashboard',   path: '/dashboard', end: true },
     { icon: <BarChart2 size={16} />,       label: 'Analytics',   path: '/dashboard/analytics' },
     { icon: <Link2 size={16} />,           label: 'Connections', path: '/dashboard/connections' },
+    { icon: <Users size={16} />,           label: 'CRM',         path: '/dashboard/crm' },
     { icon: <Settings size={16} />,        label: 'Settings',    path: '/dashboard/settings' },
   ];
 

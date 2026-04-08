@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import CampaignDetail from './pages/CampaignDetail';
 import Landing from './pages/Landing';
 import Privacy from './pages/Privacy';
+import CRM from './pages/CRM';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/campaign/:name" element={<CampaignDetail />} />
                   <Route path="/connections" element={<Connections />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/crm" element={<CRM />} />
                 </Routes>
               </Layout>
             </ProtectedRoute>
