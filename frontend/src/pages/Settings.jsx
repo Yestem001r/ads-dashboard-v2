@@ -293,11 +293,19 @@ const Settings = () => {
                   </button>
                 </div>
 
-                {accountsError === 'invalid_grant' && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md text-xs"
+                {accountsError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-md text-xs"
                     style={{ backgroundColor: 'color-mix(in srgb, var(--color-error) 10%, transparent)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 25%, transparent)' }}>
-                    <AlertCircle size={12} strokeWidth={2.5} />
-                    <span className="flex-1">Token expired. Please disconnect and reconnect your Google account.</span>
+                    <AlertCircle size={12} strokeWidth={2.5} className="mt-0.5 shrink-0" />
+                    <span className="flex-1">
+                      {accountsError === 'invalid_grant'
+                        ? 'Token expired — disconnect and reconnect your Google account.'
+                        : accountsError === 'no_token'
+                        ? 'No token stored. Please reconnect.'
+                        : accountsError === 'request_failed'
+                        ? 'Could not reach server. Check your connection.'
+                        : `Google Ads error: ${accountsError}`}
+                    </span>
                   </div>
                 )}
 
