@@ -531,13 +531,14 @@ app.get('/api/google/accounts', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
-    const { data: db } = await supabase
+    // Use supabaseAdmin to bypass RLS and reliably read the refresh token
+    const { data: db } = await supabaseAdmin
         .from('user_settings')
         .select('google_refresh_token')
         .eq('user_id', userId)
         .single();
 
-    if (!db?.google_refresh_token) return res.json({ success: true, accounts: [] });
+    if (!db?.google_refresh_token) return res.json({ success: true, accounts: [], error: 'no_token' });
 
     const withTimeout = (promise, ms) =>
         Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
@@ -551,16 +552,20 @@ app.get('/api/google/accounts', async (req, res) => {
 
         const { resource_names } = await withTimeout(
             client.listAccessibleCustomers(db.google_refresh_token),
-            10000
+            15000
         );
 
-        const accounts = await Promise.all((resource_names || []).map(async (rn) => {
+        if (!resource_names || resource_names.length === 0) {
+            return res.json({ success: true, accounts: [], error: 'no_accounts' });
+        }
+
+        const accounts = await Promise.all(resource_names.map(async (rn) => {
             const customerId = rn.replace('customers/', '');
             try {
                 const customer = client.Customer({ customer_id: customerId, refresh_token: db.google_refresh_token });
                 const [details] = await withTimeout(
                     customer.query(`SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`),
-                    5000
+                    8000
                 );
                 return {
                     id:        customerId,
@@ -575,7 +580,12 @@ app.get('/api/google/accounts', async (req, res) => {
         res.json({ success: true, accounts });
     } catch (err) {
         console.error('List accounts error:', err.message);
-        res.json({ success: true, accounts: [], error: err.message });
+        const isInvalidGrant = err.message?.includes('invalid_grant') || err.message?.includes('Token has been expired');
+        res.json({
+            success: true,
+            accounts: [],
+            error: isInvalidGrant ? 'invalid_grant' : err.message,
+        });
     }
 });
 

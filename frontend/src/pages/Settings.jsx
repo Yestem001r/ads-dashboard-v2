@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Key, Palette, Moon, Sun, Check, Loader2, DollarSign, ExternalLink, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
+import { Save, Key, Palette, Moon, Sun, Check, Loader2, DollarSign, ExternalLink, CheckCircle2, XCircle, ChevronDown, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../lib/api';
 
@@ -14,6 +14,7 @@ const Settings = () => {
   const { user } = useAuth();
 
   const [manualEntry, setManualEntry] = useState(false);
+  const [accountsError, setAccountsError] = useState(null);
 
   const [settings, setSettings] = useState({
     theme: 'dark',
@@ -38,11 +39,16 @@ const Settings = () => {
 
   const fetchAccounts = async () => {
     setAccountsLoading(true);
+    setAccountsError(null);
     try {
       const res = await axios.get(`${API_URL}/api/google/accounts?userId=${user.id}`);
       setGoogleAccounts(res.data.accounts || []);
+      if (res.data.error && res.data.error !== 'no_accounts') {
+        setAccountsError(res.data.error);
+      }
     } catch {
       setGoogleAccounts([]);
+      setAccountsError('request_failed');
     } finally {
       setAccountsLoading(false);
     }
@@ -287,6 +293,14 @@ const Settings = () => {
                   </button>
                 </div>
 
+                {accountsError === 'invalid_grant' && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-md text-xs"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--color-error) 10%, transparent)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 25%, transparent)' }}>
+                    <AlertCircle size={12} strokeWidth={2.5} />
+                    <span className="flex-1">Token expired. Please disconnect and reconnect your Google account.</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <AccountPicker
                     label="Ad Account"
@@ -307,13 +321,26 @@ const Settings = () => {
                   />
                 </div>
 
-                <button
-                  onClick={() => setManualEntry(v => !v)}
-                  className="text-[10px] font-semibold self-start"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  {manualEntry ? 'Hide manual entry' : 'Enter ID manually instead'}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setManualEntry(v => !v)}
+                    className="text-[10px] font-semibold"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {manualEntry ? 'Hide manual entry' : 'Enter ID manually instead'}
+                  </button>
+                  {!accountsLoading && (
+                    <button
+                      onClick={fetchAccounts}
+                      className="flex items-center gap-1 text-[10px] font-semibold ml-auto"
+                      style={{ color: 'var(--text-muted)' }}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-color)'}
+                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                    >
+                      <RefreshCw size={10} /> Reload accounts
+                    </button>
+                  )}
+                </div>
 
                 {(manualEntry || (!accountsLoading && googleAccounts.length === 0)) && (
                   <div className="grid grid-cols-2 gap-3">
