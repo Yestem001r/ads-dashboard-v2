@@ -181,7 +181,14 @@ app.post('/api/analytics/fetch', async (req, res) => {
         } catch (err) {
             const msg = gadsErrMsg(err);
             console.error("🔴 Google Error:", msg);
-            health.google = { status: 'error', error: msg, lastSync };
+            const needsMcc = msg.includes('login-customer-id') || msg.includes('manager') || msg.includes('permission');
+            health.google = {
+                status: 'error',
+                error: needsMcc
+                    ? 'Your account is under a Manager (MCC). Please set the Manager Account ID in Settings → API Configuration.'
+                    : msg,
+                lastSync
+            };
         }
     }
 
@@ -576,25 +583,42 @@ app.get('/api/google/accounts', async (req, res) => {
             return res.json({ success: true, accounts: [], error: 'no_accounts' });
         }
 
-        const accounts = await Promise.all(resource_names.map(async (rn) => {
+        // First pass: return all accounts with just IDs (avoids permission issues with MCC accounts)
+        const basicAccounts = resource_names.map(rn => {
             const customerId = rn.replace('customers/', '');
-            try {
-                const customer = client.Customer({ customer_id: customerId, refresh_token: db.google_refresh_token });
-                const [details] = await withTimeout(
-                    customer.query(`SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`),
-                    8000
-                );
-                return {
-                    id:        customerId,
-                    name:      details?.customer?.descriptive_name || `Account ${customerId}`,
-                    isManager: details?.customer?.manager || false,
-                };
-            } catch {
-                return { id: customerId, name: `Account ${customerId}`, isManager: false };
+            return { id: customerId, name: `Account ${customerId}`, isManager: false };
+        });
+
+        // Second pass: try to enrich with names using login_customer_id = first account (MCC pattern)
+        // Try each account as potential login_customer_id to get past permission errors
+        const enriched = await Promise.all(basicAccounts.map(async ({ id: customerId }) => {
+            // Try accessing directly first, then via each other account as MCC
+            const candidateLoginIds = [undefined, ...basicAccounts.map(a => a.id).filter(id => id !== customerId)];
+            for (const loginId of candidateLoginIds) {
+                try {
+                    const customer = client.Customer({
+                        customer_id: customerId,
+                        refresh_token: db.google_refresh_token,
+                        ...(loginId ? { login_customer_id: loginId } : {}),
+                    });
+                    const [details] = await withTimeout(
+                        customer.query(`SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`),
+                        5000
+                    );
+                    if (details) {
+                        return {
+                            id: customerId,
+                            name: details.customer?.descriptive_name || `Account ${customerId}`,
+                            isManager: details.customer?.manager || false,
+                        };
+                    }
+                } catch { /* try next loginId */ }
             }
+            return { id: customerId, name: `Account ${customerId}`, isManager: false };
         }));
 
-        res.json({ success: true, accounts });
+        console.log('[accounts] returning', enriched.length, 'accounts');
+        res.json({ success: true, accounts: enriched });
     } catch (err) {
         const msg = gadsErrMsg(err);
         console.error('List accounts error:', msg);
