@@ -548,7 +548,11 @@ app.get('/api/google/accounts', async (req, res) => {
         .eq('user_id', userId)
         .single();
 
-    if (!db?.google_refresh_token) return res.json({ success: true, accounts: [], error: 'no_token' });
+    if (!db?.google_refresh_token) {
+        console.log('[accounts] no token for user', userId);
+        return res.json({ success: true, accounts: [], error: 'no_token' });
+    }
+    console.log('[accounts] token found, calling listAccessibleCustomers...');
 
     const withTimeout = (promise, ms) =>
         Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
@@ -560,12 +564,15 @@ app.get('/api/google/accounts', async (req, res) => {
             developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
         });
 
-        const { resource_names } = await withTimeout(
+        const result = await withTimeout(
             client.listAccessibleCustomers(db.google_refresh_token),
             15000
         );
+        console.log('[accounts] listAccessibleCustomers result:', JSON.stringify(result));
+        const { resource_names } = result;
 
         if (!resource_names || resource_names.length === 0) {
+            console.log('[accounts] no resource_names returned');
             return res.json({ success: true, accounts: [], error: 'no_accounts' });
         }
 
