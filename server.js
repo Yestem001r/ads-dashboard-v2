@@ -19,6 +19,14 @@ const supabaseAdmin = createClient(
 const APP_BASE_URL  = process.env.APP_BASE_URL  || 'http://localhost:3000';
 const FRONTEND_URL  = process.env.FRONTEND_URL  || 'http://localhost:5173';
 
+// Extract a readable message from google-ads-api errors (gRPC errors lack .message)
+const gadsErrMsg = (err) => {
+    if (!err) return 'unknown error';
+    if (err.errors && err.errors[0]?.message) return err.errors[0].message;
+    if (err.message) return err.message;
+    try { return JSON.stringify(err); } catch { return String(err); }
+};
+
 
 // --- GET SETTINGS ---
 app.get('/api/settings/:userId', async (req, res) => {
@@ -171,8 +179,9 @@ app.post('/api/analytics/fetch', async (req, res) => {
                 health.google = { status: 'healthy', lastSync };
             }
         } catch (err) {
-            console.error("🔴 Google Error:", err.message);
-            health.google = { status: 'error', error: err.message, lastSync };
+            const msg = gadsErrMsg(err);
+            console.error("🔴 Google Error:", msg);
+            health.google = { status: 'error', error: msg, lastSync };
         }
     }
 
@@ -461,7 +470,8 @@ Rules:
 
         res.json({ success: true, insights });
     } catch (err) {
-        console.error('Insights error:', err.message);
+        const msg = err.message || String(err);
+        if (!msg.includes('credit balance')) console.error('Insights error:', msg);
         res.json({ success: true, insights: fallbackInsights(currentMetrics) });
     }
 });
@@ -579,12 +589,13 @@ app.get('/api/google/accounts', async (req, res) => {
 
         res.json({ success: true, accounts });
     } catch (err) {
-        console.error('List accounts error:', err.message);
-        const isInvalidGrant = err.message?.includes('invalid_grant') || err.message?.includes('Token has been expired');
+        const msg = gadsErrMsg(err);
+        console.error('List accounts error:', msg);
+        const isInvalidGrant = msg.includes('invalid_grant') || msg.includes('Token has been expired') || msg.includes('UNAUTHENTICATED');
         res.json({
             success: true,
             accounts: [],
-            error: isInvalidGrant ? 'invalid_grant' : err.message,
+            error: isInvalidGrant ? 'invalid_grant' : msg,
         });
     }
 });
