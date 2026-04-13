@@ -583,42 +583,56 @@ app.get('/api/google/accounts', async (req, res) => {
             return res.json({ success: true, accounts: [], error: 'no_accounts' });
         }
 
-        // First pass: return all accounts with just IDs (avoids permission issues with MCC accounts)
-        const basicAccounts = resource_names.map(rn => {
-            const customerId = rn.replace('customers/', '');
-            return { id: customerId, name: `Account ${customerId}`, isManager: false };
-        });
+        const topLevelIds = resource_names.map(rn => rn.replace('customers/', ''));
+        console.log('[accounts] top-level IDs:', topLevelIds);
 
-        // Second pass: try to enrich with names using login_customer_id = first account (MCC pattern)
-        // Try each account as potential login_customer_id to get past permission errors
-        const enriched = await Promise.all(basicAccounts.map(async ({ id: customerId }) => {
-            // Try accessing directly first, then via each other account as MCC
-            const candidateLoginIds = [undefined, ...basicAccounts.map(a => a.id).filter(id => id !== customerId)];
-            for (const loginId of candidateLoginIds) {
-                try {
-                    const customer = client.Customer({
-                        customer_id: customerId,
-                        refresh_token: db.google_refresh_token,
-                        ...(loginId ? { login_customer_id: loginId } : {}),
-                    });
-                    const [details] = await withTimeout(
-                        customer.query(`SELECT customer.id, customer.descriptive_name, customer.manager FROM customer LIMIT 1`),
-                        5000
-                    );
-                    if (details) {
-                        return {
-                            id: customerId,
-                            name: details.customer?.descriptive_name || `Account ${customerId}`,
-                            isManager: details.customer?.manager || false,
-                        };
+        // For each top-level account, check if it's an MCC and fetch its client accounts
+        const allAccounts = [];
+        for (const mccId of topLevelIds) {
+            try {
+                const mccCustomer = client.Customer({
+                    customer_id: mccId,
+                    refresh_token: db.google_refresh_token,
+                    login_customer_id: mccId,
+                });
+
+                // Query all client accounts under this MCC
+                const clients = await withTimeout(
+                    mccCustomer.query(`
+                        SELECT
+                            customer_client.id,
+                            customer_client.descriptive_name,
+                            customer_client.manager,
+                            customer_client.status,
+                            customer_client.level
+                        FROM customer_client
+                        WHERE customer_client.status = 'ENABLED'
+                          AND customer_client.level <= 1
+                    `),
+                    15000
+                );
+
+                for (const row of (clients || [])) {
+                    const cc = row.customer_client;
+                    if (!allAccounts.find(a => a.id === String(cc.id))) {
+                        allAccounts.push({
+                            id:        String(cc.id),
+                            name:      cc.descriptive_name || `Account ${cc.id}`,
+                            isManager: cc.manager || false,
+                            mccId,
+                        });
                     }
-                } catch { /* try next loginId */ }
+                }
+                console.log(`[accounts] MCC ${mccId} has ${clients?.length || 0} clients`);
+            } catch (mccErr) {
+                console.log(`[accounts] ${mccId} is not MCC or error:`, gadsErrMsg(mccErr));
+                // Not an MCC or can't query — add it directly
+                allAccounts.push({ id: mccId, name: `Account ${mccId}`, isManager: false, mccId: null });
             }
-            return { id: customerId, name: `Account ${customerId}`, isManager: false };
-        }));
+        }
 
-        console.log('[accounts] returning', enriched.length, 'accounts');
-        res.json({ success: true, accounts: enriched });
+        console.log('[accounts] returning', allAccounts.length, 'accounts total');
+        res.json({ success: true, accounts: allAccounts });
     } catch (err) {
         const msg = gadsErrMsg(err);
         console.error('List accounts error:', msg);

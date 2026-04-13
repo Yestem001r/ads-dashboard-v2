@@ -314,7 +314,15 @@ const Settings = () => {
                     label="Ad Account"
                     accounts={adAccounts}
                     value={settings.googleId}
-                    onChange={v => setSettings({ ...settings, googleId: v })}
+                    onChange={v => {
+                      const picked = googleAccounts.find(a => a.id === v);
+                      setSettings(s => ({
+                        ...s,
+                        googleId: v,
+                        // auto-fill MCC if the picked account has one
+                        googleLoginId: picked?.mccId || s.googleLoginId,
+                      }));
+                    }}
                     loading={accountsLoading}
                     placeholder="Select account..."
                   />
