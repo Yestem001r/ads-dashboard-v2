@@ -573,7 +573,7 @@ app.get('/api/google/accounts', async (req, res) => {
 
         const result = await withTimeout(
             client.listAccessibleCustomers(db.google_refresh_token),
-            15000
+            30000
         );
         console.log('[accounts] listAccessibleCustomers result:', JSON.stringify(result));
         const { resource_names } = result;
@@ -608,8 +608,9 @@ app.get('/api/google/accounts', async (req, res) => {
                         FROM customer_client
                         WHERE customer_client.status = 'ENABLED'
                           AND customer_client.level <= 1
+                        LIMIT 500
                     `),
-                    15000
+                    30000
                 );
 
                 for (const row of (clients || [])) {
