@@ -68,7 +68,7 @@ app.post('/api/settings/save', async (req, res) => {
 // --- FETCH ANALYTICS ---
 app.post('/api/analytics/fetch', async (req, res) => {
     const { dateFrom, dateTo, userId, level = 'campaign', source = 'all', saveSnapshot = false } = req.body;
-    const { data: db } = await supabase.from('user_settings').select('*').eq('user_id', userId || 'test-user-1').single();
+    const { data: db } = await supabaseAdmin.from('user_settings').select('*').eq('user_id', userId || 'test-user-1').single();
 
     const leadValue = db?.lead_value || 120;
     let combinedData = [];
@@ -636,7 +636,7 @@ app.get('/api/crm/stages', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
     try {
-        const { data, error } = await supabase.from('crm_stages').select('*').eq('user_id', userId).order('position');
+        const { data, error } = await supabaseAdmin.from('crm_stages').select('*').eq('user_id', userId).order('position');
         if (error) throw error;
         if (data.length === 0) {
             const seeds = DEFAULT_STAGES.map(s => ({ ...s, user_id: userId }));
@@ -676,7 +676,7 @@ app.delete('/api/crm/stages/:stageId', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
     try {
         // Move leads to first other stage
-        const { data: other } = await supabase.from('crm_stages').select('id').eq('user_id', userId).neq('id', req.params.stageId).order('position').limit(1).single();
+        const { data: other } = await supabaseAdmin.from('crm_stages').select('id').eq('user_id', userId).neq('id', req.params.stageId).order('position').limit(1).single();
         if (other) await supabaseAdmin.from('crm_leads').update({ stage_id: other.id }).eq('stage_id', req.params.stageId).eq('user_id', userId);
         const { error } = await supabaseAdmin.from('crm_stages').delete().eq('id', req.params.stageId).eq('user_id', userId);
         if (error) throw error;
@@ -716,7 +716,7 @@ app.get('/api/crm/leads/:leadId', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
     try {
-        const { data, error } = await supabase.from('crm_leads').select('*').eq('id', req.params.leadId).eq('user_id', userId).single();
+        const { data, error } = await supabaseAdmin.from('crm_leads').select('*').eq('id', req.params.leadId).eq('user_id', userId).single();
         if (error) throw error;
         res.json({ success: true, lead: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -773,7 +773,7 @@ app.post('/api/crm/leads/:leadId/notes', async (req, res) => {
     const { userId, note } = req.body;
     if (!userId || !note) return res.status(400).json({ error: 'Missing userId or note' });
     try {
-        const { data: existing } = await supabase.from('crm_leads').select('notes').eq('id', req.params.leadId).single();
+        const { data: existing } = await supabaseAdmin.from('crm_leads').select('notes').eq('id', req.params.leadId).single();
         const updatedNotes = existing?.notes ? `${existing.notes}\n\n${note}` : note;
         await supabaseAdmin.from('crm_leads').update({ notes: updatedNotes }).eq('id', req.params.leadId).eq('user_id', userId);
         await supabaseAdmin.from('crm_timeline').insert({
@@ -800,7 +800,7 @@ app.get('/api/crm/timeline/:leadId', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
     try {
-        const { data, error } = await supabase.from('crm_timeline').select('*').eq('lead_id', req.params.leadId).eq('user_id', userId).order('created_at', { ascending: false });
+        const { data, error } = await supabaseAdmin.from('crm_timeline').select('*').eq('lead_id', req.params.leadId).eq('user_id', userId).order('created_at', { ascending: false });
         if (error) throw error;
         res.json({ success: true, events: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -820,10 +820,10 @@ app.post('/api/webhooks/meta-leads', async (req, res) => {
     const { token } = req.query;
     res.status(200).json({ received: true }); // respond immediately
     try {
-        const { data: settings } = await supabase.from('user_settings').select('user_id').eq('webhook_token', token).single();
+        const { data: settings } = await supabaseAdmin.from('user_settings').select('user_id').eq('webhook_token', token).single();
         if (!settings) return;
         const userId = settings.user_id;
-        const { data: firstStage } = await supabase.from('crm_stages').select('id').eq('user_id', userId).order('position').limit(1).single();
+        const { data: firstStage } = await supabaseAdmin.from('crm_stages').select('id').eq('user_id', userId).order('position').limit(1).single();
         if (!firstStage) return;
 
         const entries = req.body?.entry || [];
@@ -850,10 +850,10 @@ app.post('/api/webhooks/google-ads', async (req, res) => {
     const { token } = req.query;
     res.status(200).json({ received: true });
     try {
-        const { data: settings } = await supabase.from('user_settings').select('user_id').eq('webhook_token', token).single();
+        const { data: settings } = await supabaseAdmin.from('user_settings').select('user_id').eq('webhook_token', token).single();
         if (!settings) return;
         const userId = settings.user_id;
-        const { data: firstStage } = await supabase.from('crm_stages').select('id').eq('user_id', userId).order('position').limit(1).single();
+        const { data: firstStage } = await supabaseAdmin.from('crm_stages').select('id').eq('user_id', userId).order('position').limit(1).single();
         if (!firstStage) return;
         const b = req.body || {};
         await supabaseAdmin.from('crm_leads').insert({
