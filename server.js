@@ -31,7 +31,7 @@ const gadsErrMsg = (err) => {
 // --- GET SETTINGS ---
 app.get('/api/settings/:userId', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('user_settings').select('*').eq('user_id', req.params.userId).single();
+        const { data, error } = await supabaseAdmin.from('user_settings').select('*').eq('user_id', req.params.userId).single();
         if (error && error.code !== 'PGRST116') throw error;
         res.json(data ? {
             theme: data.theme,
@@ -50,7 +50,7 @@ app.get('/api/settings/:userId', async (req, res) => {
 app.post('/api/settings/save', async (req, res) => {
     const { userId, settings } = req.body;
     try {
-        const { error } = await supabase.from('user_settings').upsert({
+        const { error } = await supabaseAdmin.from('user_settings').upsert({
             user_id: userId,
             theme: settings.theme,
             accent_color: settings.accentColor,
