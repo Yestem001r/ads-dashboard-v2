@@ -181,14 +181,7 @@ app.post('/api/analytics/fetch', async (req, res) => {
         } catch (err) {
             const msg = gadsErrMsg(err);
             console.error("🔴 Google Error:", msg);
-            const needsMcc = msg.includes('login-customer-id') || msg.includes('manager') || msg.includes('permission');
-            health.google = {
-                status: 'error',
-                error: needsMcc
-                    ? 'Your account is under a Manager (MCC). Please set the Manager Account ID in Settings → API Configuration.'
-                    : msg,
-                lastSync
-            };
+            health.google = { status: 'error', error: msg, lastSync };
         }
     }
 
@@ -583,13 +576,44 @@ app.get('/api/google/accounts', async (req, res) => {
             return res.json({ success: true, accounts: [], error: 'no_accounts' });
         }
 
-        // Return top-level IDs directly — no sub-queries to avoid timeouts on large MCCs
-        const accounts = resource_names.map(rn => {
-            const id = rn.replace('customers/', '');
-            return { id, name: `Account ${id}`, isManager: false, mccId: id };
-        });
-        console.log('[accounts] returning', accounts.length, 'top-level accounts');
-        res.json({ success: true, accounts });
+        const topLevelIds = resource_names.map(rn => rn.replace('customers/', ''));
+        const allAccounts = [];
+
+        for (const mccId of topLevelIds) {
+            try {
+                const mccCustomer = client.Customer({
+                    customer_id: mccId,
+                    refresh_token: db.google_refresh_token,
+                    login_customer_id: mccId,
+                });
+                const clients = await withTimeout(
+                    mccCustomer.query(`
+                        SELECT customer_client.id, customer_client.descriptive_name, customer_client.manager, customer_client.status, customer_client.level
+                        FROM customer_client
+                        WHERE customer_client.status = 'ENABLED' AND customer_client.level = 1
+                        LIMIT 200
+                    `),
+                    25000
+                );
+                for (const row of (clients || [])) {
+                    const cc = row.customer_client;
+                    if (!allAccounts.find(a => a.id === String(cc.id))) {
+                        allAccounts.push({ id: String(cc.id), name: cc.descriptive_name || `Account ${cc.id}`, isManager: cc.manager || false, mccId });
+                    }
+                }
+                // Also add the MCC itself as an option
+                if (!allAccounts.find(a => a.id === mccId)) {
+                    allAccounts.push({ id: mccId, name: `MCC ${mccId}`, isManager: true, mccId });
+                }
+                console.log(`[accounts] MCC ${mccId}: ${clients?.length || 0} sub-accounts`);
+            } catch (e) {
+                console.log(`[accounts] ${mccId} fallback:`, gadsErrMsg(e));
+                allAccounts.push({ id: mccId, name: `Account ${mccId}`, isManager: false, mccId });
+            }
+        }
+
+        console.log('[accounts] total:', allAccounts.length);
+        res.json({ success: true, accounts: allAccounts });
     } catch (err) {
         const msg = gadsErrMsg(err);
         console.error('List accounts error:', msg);
