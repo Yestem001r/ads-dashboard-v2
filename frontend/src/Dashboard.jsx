@@ -1,16 +1,161 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from './context/AuthContext';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import AIInsightsPanel from './components/AIInsightsPanel';
 import { API_URL } from './lib/api';
 import {
   TrendingUp, Users, Calendar, RefreshCw, BarChart3,
   Target, Percent, Flame, AlertCircle, ChevronRight, X,
-  MousePointerClick, Eye, DollarSign, TrendingDown
+  MousePointerClick, Eye, DollarSign, ChevronLeft, ChevronDown
 } from 'lucide-react';
+
+// ── Date Range Picker ────────────────────────────────────────────────────────
+const PRESETS = [
+  { label: 'Today',      days: 0 },
+  { label: 'Last 7d',   days: 7 },
+  { label: 'Last 14d',  days: 14 },
+  { label: 'Last 30d',  days: 30 },
+  { label: 'Last 90d',  days: 90 },
+];
+
+const fmtDisplay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAY_NAMES   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+function MiniCalendar({ selected, onChange, minDate, maxDate }) {
+  const today = new Date();
+  const init  = selected || today;
+  const [view, setView] = useState({ y: init.getFullYear(), m: init.getMonth() });
+
+  const first   = new Date(view.y, view.m, 1);
+  const lastDay = new Date(view.y, view.m + 1, 0).getDate();
+  const pad     = first.getDay();
+  const cells   = Array(pad).fill(null).concat(Array.from({ length: lastDay }, (_, i) => i + 1));
+
+  const isSelected = (d) => selected && d === selected.getDate() && view.m === selected.getMonth() && view.y === selected.getFullYear();
+  const isToday    = (d) => d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+  const isDisabled = (d) => {
+    const dt = new Date(view.y, view.m, d);
+    if (minDate && dt < minDate) return true;
+    if (maxDate && dt > maxDate) return true;
+    return false;
+  };
+
+  return (
+    <div style={{ width: 224 }}>
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={() => setView(v => ({ ...v, m: v.m === 0 ? 11 : v.m - 1, y: v.m === 0 ? v.y - 1 : v.y }))}
+          className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
+          <ChevronLeft size={12} />
+        </button>
+        <span className="text-xs font-bold" style={{ color: 'var(--text-main)' }}>{MONTH_NAMES[view.m]} {view.y}</span>
+        <button onClick={() => setView(v => ({ ...v, m: v.m === 11 ? 0 : v.m + 1, y: v.m === 11 ? v.y + 1 : v.y }))}
+          className="w-6 h-6 flex items-center justify-center rounded hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
+          <ChevronRight size={12} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-0.5 mb-1">
+        {DAY_NAMES.map(n => <div key={n} className="text-center" style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', padding: '2px 0' }}>{n}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((d, i) => !d ? <div key={i} /> : (
+          <button key={i} disabled={isDisabled(d)}
+            onClick={() => onChange(new Date(view.y, view.m, d))}
+            className="rounded text-xs font-semibold transition-colors"
+            style={{
+              padding: '4px 0',
+              backgroundColor: isSelected(d) ? 'var(--accent-color)' : 'transparent',
+              color: isSelected(d) ? '#fff' : isDisabled(d) ? 'var(--text-muted)' : isToday(d) ? 'var(--accent-color)' : 'var(--text-main)',
+              opacity: isDisabled(d) ? 0.35 : 1,
+              cursor: isDisabled(d) ? 'not-allowed' : 'pointer',
+            }}
+          >{d}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DateRangePicker({ startDate, endDate, onChange }) {
+  const [open, setOpen]   = useState(false);
+  const [mode, setMode]   = useState('preset'); // 'preset' | 'custom'
+  const ref               = useRef(null);
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const applyPreset = (days) => {
+    const end   = new Date(); end.setHours(0,0,0,0);
+    const start = days === 0 ? new Date(end) : new Date(end.getTime() - days * 86400000);
+    onChange(start, end);
+    setOpen(false);
+  };
+
+  const label = `${fmtDisplay(startDate)} – ${fmtDisplay(endDate)}`;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 px-3 h-8 rounded-md text-xs font-semibold transition-colors"
+        style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-strong)', color: 'var(--text-main)', whiteSpace: 'nowrap' }}
+      >
+        <Calendar size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+        <span className="mono">{label}</span>
+        <ChevronDown size={11} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 100,
+            backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-strong)',
+            borderRadius: 10, padding: 14, minWidth: 230, boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+          }}
+        >
+          {/* Tabs */}
+          <div className="flex gap-1 mb-3 p-0.5 rounded-md" style={{ backgroundColor: 'var(--bg-base)', border: '1px solid var(--border-strong)' }}>
+            {['preset','custom'].map(t => (
+              <button key={t} onClick={() => setMode(t)}
+                className="flex-1 py-1 rounded text-[10px] font-bold uppercase transition-colors"
+                style={mode === t ? { backgroundColor: 'var(--bg-surface-active)', color: 'var(--text-main)' } : { color: 'var(--text-muted)' }}
+              >{t === 'preset' ? 'Quick' : 'Custom'}</button>
+            ))}
+          </div>
+
+          {mode === 'preset' ? (
+            <div className="space-y-1">
+              {PRESETS.map(p => (
+                <button key={p.days} onClick={() => applyPreset(p.days)}
+                  className="w-full text-left px-3 py-2 rounded-md text-xs font-semibold transition-colors"
+                  style={{ color: 'var(--text-main)' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-surface-active)'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >{p.label}</button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <p className="label mb-1.5">From</p>
+                <MiniCalendar selected={startDate} onChange={d => onChange(d, endDate)} maxDate={endDate} />
+              </div>
+              <div style={{ borderTop: '1px solid var(--border-strong)', paddingTop: 12 }}>
+                <p className="label mb-1.5">To</p>
+                <MiniCalendar selected={endDate} onChange={d => { onChange(startDate, d); setOpen(false); }} minDate={startDate} maxDate={new Date()} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val || 0);
 const formatNumber   = (val) => new Intl.NumberFormat('en-US').format(val || 0);
@@ -190,14 +335,11 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 h-8 rounded-md" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-strong)' }}>
-            <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
-            <div className="flex items-center mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <DatePicker selected={startDate} onChange={d => setStartDate(d)} selectsStart startDate={startDate} endDate={endDate} dateFormat="MMM d" className="bg-transparent outline-none" style={{ width: '46px' }} />
-              <span className="mx-1 opacity-30">–</span>
-              <DatePicker selected={endDate} onChange={d => setEndDate(d)} selectsEnd startDate={startDate} endDate={endDate} minDate={startDate} dateFormat="MMM d" className="bg-transparent outline-none" style={{ width: '46px' }} />
-            </div>
-          </div>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+          />
           <button
             onClick={fetchData}
             className="h-8 w-8 flex items-center justify-center rounded-md transition-colors duration-150"

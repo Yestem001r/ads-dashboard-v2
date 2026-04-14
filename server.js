@@ -266,10 +266,15 @@ app.post('/api/analytics/fetch', async (req, res) => {
                 }
             }
         } catch (err) {
-            const metaMsg = err.response?.data?.error?.message || err.message;
+            const metaMsg  = err.response?.data?.error?.message || err.message;
             const metaCode = err.response?.data?.error?.code;
             console.error("🔴 Meta Error:", metaCode ? `[${metaCode}] ${metaMsg}` : metaMsg);
-            health.meta = { status: 'error', error: metaMsg, lastSync };
+            const isExpired = metaMsg?.includes('Session has expired') || metaCode === 190;
+            health.meta = {
+                status: 'error',
+                error: isExpired ? 'Access token expired. Please update your Meta Access Token in Settings.' : metaMsg,
+                lastSync
+            };
         }
     }
 
