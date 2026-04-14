@@ -583,57 +583,13 @@ app.get('/api/google/accounts', async (req, res) => {
             return res.json({ success: true, accounts: [], error: 'no_accounts' });
         }
 
-        const topLevelIds = resource_names.map(rn => rn.replace('customers/', ''));
-        console.log('[accounts] top-level IDs:', topLevelIds);
-
-        // For each top-level account, check if it's an MCC and fetch its client accounts
-        const allAccounts = [];
-        for (const mccId of topLevelIds) {
-            try {
-                const mccCustomer = client.Customer({
-                    customer_id: mccId,
-                    refresh_token: db.google_refresh_token,
-                    login_customer_id: mccId,
-                });
-
-                // Query all client accounts under this MCC
-                const clients = await withTimeout(
-                    mccCustomer.query(`
-                        SELECT
-                            customer_client.id,
-                            customer_client.descriptive_name,
-                            customer_client.manager,
-                            customer_client.status,
-                            customer_client.level
-                        FROM customer_client
-                        WHERE customer_client.status = 'ENABLED'
-                          AND customer_client.level <= 1
-                        LIMIT 500
-                    `),
-                    30000
-                );
-
-                for (const row of (clients || [])) {
-                    const cc = row.customer_client;
-                    if (!allAccounts.find(a => a.id === String(cc.id))) {
-                        allAccounts.push({
-                            id:        String(cc.id),
-                            name:      cc.descriptive_name || `Account ${cc.id}`,
-                            isManager: cc.manager || false,
-                            mccId,
-                        });
-                    }
-                }
-                console.log(`[accounts] MCC ${mccId} has ${clients?.length || 0} clients`);
-            } catch (mccErr) {
-                console.log(`[accounts] ${mccId} is not MCC or error:`, gadsErrMsg(mccErr));
-                // Not an MCC or can't query — add it directly
-                allAccounts.push({ id: mccId, name: `Account ${mccId}`, isManager: false, mccId: null });
-            }
-        }
-
-        console.log('[accounts] returning', allAccounts.length, 'accounts total');
-        res.json({ success: true, accounts: allAccounts });
+        // Return top-level IDs directly — no sub-queries to avoid timeouts on large MCCs
+        const accounts = resource_names.map(rn => {
+            const id = rn.replace('customers/', '');
+            return { id, name: `Account ${id}`, isManager: false, mccId: id };
+        });
+        console.log('[accounts] returning', accounts.length, 'top-level accounts');
+        res.json({ success: true, accounts });
     } catch (err) {
         const msg = gadsErrMsg(err);
         console.error('List accounts error:', msg);
