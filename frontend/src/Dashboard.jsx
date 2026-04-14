@@ -193,9 +193,9 @@ const Dashboard = () => {
           <div className="flex items-center gap-2 px-3 h-8 rounded-md" style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-strong)' }}>
             <Calendar size={13} style={{ color: 'var(--text-muted)' }} />
             <div className="flex items-center mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <DatePicker selected={startDate} onChange={d => setStartDate(d)} selectsStart startDate={startDate} endDate={endDate} dateFormat="MMM d" className="bg-transparent w-10.5 outline-none" />
+              <DatePicker selected={startDate} onChange={d => setStartDate(d)} selectsStart startDate={startDate} endDate={endDate} dateFormat="MMM d" className="bg-transparent outline-none" style={{ width: '46px' }} />
               <span className="mx-1 opacity-30">–</span>
-              <DatePicker selected={endDate} onChange={d => setEndDate(d)} selectsEnd startDate={startDate} endDate={endDate} minDate={startDate} dateFormat="MMM d" className="bg-transparent w-10.5 outline-none" />
+              <DatePicker selected={endDate} onChange={d => setEndDate(d)} selectsEnd startDate={startDate} endDate={endDate} minDate={startDate} dateFormat="MMM d" className="bg-transparent outline-none" style={{ width: '46px' }} />
             </div>
           </div>
           <button

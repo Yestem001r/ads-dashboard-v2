@@ -98,9 +98,6 @@ app.post('/api/analytics/fetch', async (req, res) => {
                 login_customer_id: (db.google_login_customer_id || '').replace(/-/g, '') || undefined,
             });
 
-            // Note: segments.date is intentionally omitted from WHERE to avoid empty results
-            // when campaigns have no activity in the given date range (Google returns all-time
-            // aggregated metrics in that case). Meta handles date filtering natively via time_range.
             let gaqlQuery;
             if (level === 'adgroup') {
                 gaqlQuery = `
@@ -110,9 +107,11 @@ app.post('/api/analytics/fetch', async (req, res) => {
                         metrics.cost_micros,
                         metrics.conversions,
                         metrics.impressions,
-                        metrics.clicks
+                        metrics.clicks,
+                        segments.date
                     FROM ad_group
                     WHERE ad_group.status = 'ENABLED'
+                      AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
                 `;
             } else if (level === 'ad') {
                 gaqlQuery = `
@@ -123,9 +122,11 @@ app.post('/api/analytics/fetch', async (req, res) => {
                         metrics.cost_micros,
                         metrics.conversions,
                         metrics.impressions,
-                        metrics.clicks
+                        metrics.clicks,
+                        segments.date
                     FROM ad_group_ad
                     WHERE ad_group_ad.status = 'ENABLED'
+                      AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
                 `;
             } else {
                 gaqlQuery = `
@@ -134,9 +135,11 @@ app.post('/api/analytics/fetch', async (req, res) => {
                         metrics.cost_micros,
                         metrics.conversions,
                         metrics.impressions,
-                        metrics.clicks
+                        metrics.clicks,
+                        segments.date
                     FROM campaign
                     WHERE campaign.status = 'ENABLED'
+                      AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
                 `;
             }
 
@@ -173,7 +176,7 @@ app.post('/api/analytics/fetch', async (req, res) => {
                         conversions,
                         ctr: impressions > 0 ? (clicks / impressions * 100) : 0,
                         cpc: clicks > 0 ? spend / clicks : 0,
-                        date: dateTo
+                        date: r.segments?.date || dateTo
                     };
                 }));
                 health.google = { status: 'healthy', lastSync };
@@ -263,8 +266,10 @@ app.post('/api/analytics/fetch', async (req, res) => {
                 }
             }
         } catch (err) {
-            console.error("🔴 Meta Error:", err.message);
-            health.meta = { status: 'error', error: err.message, lastSync };
+            const metaMsg = err.response?.data?.error?.message || err.message;
+            const metaCode = err.response?.data?.error?.code;
+            console.error("🔴 Meta Error:", metaCode ? `[${metaCode}] ${metaMsg}` : metaMsg);
+            health.meta = { status: 'error', error: metaMsg, lastSync };
         }
     }
 
