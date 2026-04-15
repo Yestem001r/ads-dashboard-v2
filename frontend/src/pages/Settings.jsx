@@ -15,6 +15,10 @@ const Settings = () => {
 
   const [manualEntry, setManualEntry] = useState(false);
   const [accountsError, setAccountsError] = useState(null);
+  const [metaAccounts, setMetaAccounts] = useState([]);
+  const [metaAccountsLoading, setMetaAccountsLoading] = useState(false);
+  const [metaAccountsError, setMetaAccountsError] = useState(null);
+  const [metaOauthStatus, setMetaOauthStatus] = useState(null);
 
   const [settings, setSettings] = useState({
     theme: 'dark',
@@ -22,8 +26,8 @@ const Settings = () => {
     googleConnected: false,
     googleId: '',
     googleLoginId: '',
+    metaConnected: false,
     metaId: '',
-    metaAccessToken: '',
     leadValue: 120,
     googleBudget: '',
     metaBudget: '',
@@ -54,6 +58,21 @@ const Settings = () => {
     }
   };
 
+  const fetchMetaAccounts = async () => {
+    setMetaAccountsLoading(true);
+    setMetaAccountsError(null);
+    try {
+      const res = await axios.get(`${API_URL}/api/meta/accounts?userId=${user.id}`);
+      setMetaAccounts(res.data.accounts || []);
+      if (res.data.error) setMetaAccountsError(res.data.error);
+    } catch {
+      setMetaAccounts([]);
+      setMetaAccountsError('request_failed');
+    } finally {
+      setMetaAccountsLoading(false);
+    }
+  };
+
   const fetchSettings = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/settings/${user.id}`);
@@ -61,20 +80,21 @@ const Settings = () => {
         const db = res.data;
         const budget = JSON.parse(localStorage.getItem(`adcore_budget_${user.id}`) || '{}');
         setSettings({
-          theme:          db.theme          || 'dark',
-          accentColor:    db.accentColor    || '#3b82f6',
+          theme:           db.theme          || 'dark',
+          accentColor:     db.accentColor    || '#3b82f6',
           googleConnected: !!db.googleConnected,
-          googleId:       db.googleId       || '',
-          googleLoginId:  db.googleLoginId  || '',
-          metaId:         db.metaId         || '',
-          metaAccessToken: db.metaAccessToken || '',
-          leadValue:      db.leadValue      || 120,
-          googleBudget:   budget.google     || '',
-          metaBudget:     budget.meta       || '',
+          googleId:        db.googleId       || '',
+          googleLoginId:   db.googleLoginId  || '',
+          metaConnected:   !!db.metaConnected,
+          metaId:          db.metaId         || '',
+          leadValue:       db.leadValue      || 120,
+          googleBudget:    budget.google     || '',
+          metaBudget:      budget.meta       || '',
         });
         if (db.theme) applyTheme(db.theme);
         if (db.accentColor) document.documentElement.style.setProperty('--accent-color', db.accentColor);
         if (db.googleConnected) fetchAccounts();
+        if (db.metaConnected) fetchMetaAccounts();
       }
     } catch (err) {
       console.error("Error loading settings:", err);
@@ -83,10 +103,12 @@ const Settings = () => {
 
   useEffect(() => { fetchSettings(); }, []);
 
-  // Detect OAuth redirect return (?oauth=success or ?oauth=error)
+  // Detect OAuth redirect return
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const oauth = params.get('oauth');
+    const oauth     = params.get('oauth');
+    const metaOauth = params.get('meta_oauth');
+
     if (oauth === 'success') {
       setOauthStatus('success');
       fetchSettings();
@@ -94,6 +116,15 @@ const Settings = () => {
     } else if (oauth === 'error') {
       setOauthStatus('error');
       setOauthMsg(params.get('msg') || 'OAuth failed');
+      window.history.replaceState({}, '', '/dashboard/settings');
+    }
+
+    if (metaOauth === 'success') {
+      setMetaOauthStatus('success');
+      fetchSettings();
+      window.history.replaceState({}, '', '/dashboard/settings');
+    } else if (metaOauth === 'error') {
+      setMetaOauthStatus('error');
       window.history.replaceState({}, '', '/dashboard/settings');
     }
   }, []);
@@ -125,6 +156,17 @@ const Settings = () => {
       setOauthStatus(null);
     } catch {
       alert('Error disconnecting Google Ads');
+    }
+  };
+
+  const handleMetaDisconnect = async () => {
+    try {
+      await axios.post(`${API_URL}/api/meta/disconnect`, { userId: user.id });
+      setSettings(s => ({ ...s, metaConnected: false, metaId: '' }));
+      setMetaAccounts([]);
+      setMetaOauthStatus(null);
+    } catch {
+      alert('Error disconnecting Meta Ads');
     }
   };
 
@@ -372,12 +414,81 @@ const Settings = () => {
           <div className="space-y-4 pt-5" style={{ borderTop: '1px solid var(--border-strong)' }}>
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold">Meta Ads</p>
-              <span className="badge badge-meta">Graph API</span>
+              <span className="badge badge-meta">OAuth</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Ad Account ID" value={settings.metaId} onChange={v => setSettings({ ...settings, metaId: v })} placeholder="act_..." />
-              <Field label="Access Token" value={settings.metaAccessToken} onChange={v => setSettings({ ...settings, metaAccessToken: v })} type="password" />
-            </div>
+
+            {!settings.metaConnected ? (
+              <div className="flex flex-col items-center gap-3 py-7 rounded-md" style={{ border: '1px dashed var(--border-strong)' }}>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No Meta Ads account connected</p>
+                <button
+                  onClick={() => { window.location.href = `${API_URL}/oauth/meta/start?userId=${user.id}`; }}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <ExternalLink size={12} />
+                  Connect Meta Ads
+                </button>
+                {metaOauthStatus === 'error' && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--color-error)' }}>
+                    <XCircle size={11} strokeWidth={2.5} /> Connection failed. Try again.
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={12} style={{ color: 'var(--color-success)' }} />
+                  <span className="text-xs font-semibold" style={{ color: 'var(--color-success)' }}>
+                    {metaOauthStatus === 'success' ? 'Connected successfully' : 'Meta Ads Connected'}
+                  </span>
+                  <button
+                    onClick={handleMetaDisconnect}
+                    className="text-[10px] ml-auto font-semibold transition-colors duration-150"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--color-error)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+
+                {metaAccountsError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-md text-xs"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--color-error) 10%, transparent)', color: 'var(--color-error)', border: '1px solid color-mix(in srgb, var(--color-error) 25%, transparent)' }}>
+                    <AlertCircle size={12} strokeWidth={2.5} className="mt-0.5 shrink-0" />
+                    <span className="flex-1">
+                      {metaAccountsError === 'token_expired'
+                        ? 'Token expired — disconnect and reconnect.'
+                        : metaAccountsError === 'no_token'
+                        ? 'No token stored. Please reconnect.'
+                        : `Meta error: ${metaAccountsError}`}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <AccountPicker
+                    label="Ad Account"
+                    accounts={metaAccounts}
+                    value={settings.metaId}
+                    onChange={v => setSettings(s => ({ ...s, metaId: v }))}
+                    loading={metaAccountsLoading}
+                    placeholder="Select account..."
+                  />
+                </div>
+
+                {!metaAccountsLoading && (
+                  <button
+                    onClick={fetchMetaAccounts}
+                    className="flex items-center gap-1 text-[10px] font-semibold"
+                    style={{ color: 'var(--text-muted)' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-color)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  >
+                    <RefreshCw size={10} /> Reload accounts
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

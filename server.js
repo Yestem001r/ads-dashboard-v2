@@ -40,7 +40,7 @@ app.get('/api/settings/:userId', async (req, res) => {
             googleLoginId: data.google_login_customer_id,
             googleConnected: !!data.google_refresh_token,
             metaId: data.meta_ad_account_id,
-            metaAccessToken: data.meta_access_token,
+            metaConnected: !!data.meta_access_token,
             leadValue: data.lead_value
         } : { user_id: req.params.userId, leadValue: 120 });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -50,27 +50,6 @@ app.get('/api/settings/:userId', async (req, res) => {
 app.post('/api/settings/save', async (req, res) => {
     const { userId, settings } = req.body;
     try {
-        // Exchange short-lived Meta token for long-lived (60 days) if token changed
-        let metaToken = settings.metaAccessToken;
-        if (metaToken && process.env.META_APP_ID && process.env.META_APP_SECRET) {
-            try {
-                const exchangeRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
-                    params: {
-                        grant_type: 'fb_exchange_token',
-                        client_id: process.env.META_APP_ID,
-                        client_secret: process.env.META_APP_SECRET,
-                        fb_exchange_token: metaToken,
-                    }
-                });
-                if (exchangeRes.data.access_token) {
-                    metaToken = exchangeRes.data.access_token;
-                    console.log('✅ Meta token exchanged for long-lived token');
-                }
-            } catch (e) {
-                console.log('Meta token exchange skipped:', e.response?.data?.error?.message || e.message);
-            }
-        }
-
         const { error } = await supabaseAdmin.from('user_settings').upsert({
             user_id: userId,
             theme: settings.theme,
@@ -78,7 +57,6 @@ app.post('/api/settings/save', async (req, res) => {
             google_customer_id: settings.googleId,
             google_login_customer_id: settings.googleLoginId,
             meta_ad_account_id: settings.metaId,
-            meta_access_token: metaToken,
             lead_value: Number(settings.leadValue)
         }, { onConflict: 'user_id' });
         if (error) throw error;
@@ -664,6 +642,116 @@ app.post('/api/google/disconnect', async (req, res) => {
     try {
         await supabaseAdmin.from('user_settings').upsert(
             { user_id: userId, google_refresh_token: null, google_customer_id: null, google_login_customer_id: null },
+            { onConflict: 'user_id' }
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================
+// META ADS OAUTH
+// ============================================================
+
+app.get('/oauth/meta/start', (req, res) => {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).send('Missing userId');
+    if (!process.env.META_APP_ID) return res.status(500).send('META_APP_ID not configured');
+
+    const params = new URLSearchParams({
+        client_id:     process.env.META_APP_ID,
+        redirect_uri:  `${APP_BASE_URL}/oauth/meta/callback`,
+        state:         userId,
+        scope:         'ads_read,ads_management,business_management',
+        response_type: 'code',
+    });
+    res.redirect(`https://www.facebook.com/v18.0/dialog/oauth?${params}`);
+});
+
+app.get('/oauth/meta/callback', async (req, res) => {
+    const { code, state: userId, error: oauthError } = req.query;
+
+    if (oauthError) {
+        return res.redirect(`${FRONTEND_URL}/dashboard/settings?meta_oauth=error&msg=${encodeURIComponent(oauthError)}`);
+    }
+    if (!code || !userId) {
+        return res.redirect(`${FRONTEND_URL}/dashboard/settings?meta_oauth=error&msg=${encodeURIComponent('Missing code or state')}`);
+    }
+
+    try {
+        // Exchange code for short-lived token
+        const tokenRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+            params: {
+                client_id:     process.env.META_APP_ID,
+                client_secret: process.env.META_APP_SECRET,
+                redirect_uri:  `${APP_BASE_URL}/oauth/meta/callback`,
+                code,
+            }
+        });
+        const shortToken = tokenRes.data.access_token;
+
+        // Exchange for long-lived token (60 days)
+        const longRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+            params: {
+                grant_type:        'fb_exchange_token',
+                client_id:         process.env.META_APP_ID,
+                client_secret:     process.env.META_APP_SECRET,
+                fb_exchange_token: shortToken,
+            }
+        });
+        const longToken = longRes.data.access_token;
+
+        await supabaseAdmin.from('user_settings').upsert(
+            { user_id: userId, meta_access_token: longToken },
+            { onConflict: 'user_id' }
+        );
+
+        res.redirect(`${FRONTEND_URL}/dashboard/settings?meta_oauth=success`);
+    } catch (err) {
+        const msg = err.response?.data?.error?.message || err.message;
+        res.redirect(`${FRONTEND_URL}/dashboard/settings?meta_oauth=error&msg=${encodeURIComponent(msg)}`);
+    }
+});
+
+app.get('/api/meta/accounts', async (req, res) => {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+
+    const { data: db } = await supabaseAdmin
+        .from('user_settings')
+        .select('meta_access_token')
+        .eq('user_id', userId)
+        .single();
+
+    if (!db?.meta_access_token) return res.json({ success: true, accounts: [], error: 'no_token' });
+
+    try {
+        const result = await axios.get('https://graph.facebook.com/v18.0/me/adaccounts', {
+            params: {
+                access_token: db.meta_access_token,
+                fields: 'id,name,account_status',
+                limit: 200,
+            }
+        });
+        const accounts = (result.data.data || [])
+            .filter(a => a.account_status === 1) // 1 = ACTIVE
+            .map(a => ({ id: a.id, name: a.name }));
+        res.json({ success: true, accounts });
+    } catch (err) {
+        const metaMsg  = err.response?.data?.error?.message || err.message;
+        const metaCode = err.response?.data?.error?.code;
+        const isExpired = metaCode === 190 || metaMsg?.includes('Session has expired') || metaMsg?.includes('Invalid OAuth');
+        res.json({ success: true, accounts: [], error: isExpired ? 'token_expired' : metaMsg });
+    }
+});
+
+app.post('/api/meta/disconnect', async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Missing userId' });
+    try {
+        await supabaseAdmin.from('user_settings').upsert(
+            { user_id: userId, meta_access_token: null, meta_ad_account_id: null },
             { onConflict: 'user_id' }
         );
         res.json({ success: true });
