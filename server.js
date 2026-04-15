@@ -97,6 +97,9 @@ app.post('/api/analytics/fetch', async (req, res) => {
                 login_customer_id: (db.google_login_customer_id || '').replace(/-/g, '') || undefined,
             });
 
+            const withTimeout = (promise, ms) =>
+                Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
             let gaqlQuery;
             if (level === 'adgroup') {
                 gaqlQuery = `
@@ -111,6 +114,8 @@ app.post('/api/analytics/fetch', async (req, res) => {
                     FROM ad_group
                     WHERE ad_group.status = 'ENABLED'
                       AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
+                      AND metrics.impressions > 0
+                    LIMIT 5000
                 `;
             } else if (level === 'ad') {
                 gaqlQuery = `
@@ -126,6 +131,8 @@ app.post('/api/analytics/fetch', async (req, res) => {
                     FROM ad_group_ad
                     WHERE ad_group_ad.status = 'ENABLED'
                       AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
+                      AND metrics.impressions > 0
+                    LIMIT 5000
                 `;
             } else {
                 gaqlQuery = `
@@ -139,10 +146,12 @@ app.post('/api/analytics/fetch', async (req, res) => {
                     FROM campaign
                     WHERE campaign.status = 'ENABLED'
                       AND segments.date BETWEEN '${dateFrom}' AND '${dateTo}'
+                      AND metrics.impressions > 0
+                    LIMIT 10000
                 `;
             }
 
-            const results = await customer.query(gaqlQuery);
+            const results = await withTimeout(customer.query(gaqlQuery), 45000);
 
             if (results) {
                 console.log(`✅ Google: Found ${results.length} rows at level=${level}`);
