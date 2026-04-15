@@ -50,6 +50,27 @@ app.get('/api/settings/:userId', async (req, res) => {
 app.post('/api/settings/save', async (req, res) => {
     const { userId, settings } = req.body;
     try {
+        // Exchange short-lived Meta token for long-lived (60 days) if token changed
+        let metaToken = settings.metaAccessToken;
+        if (metaToken && process.env.META_APP_ID && process.env.META_APP_SECRET) {
+            try {
+                const exchangeRes = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+                    params: {
+                        grant_type: 'fb_exchange_token',
+                        client_id: process.env.META_APP_ID,
+                        client_secret: process.env.META_APP_SECRET,
+                        fb_exchange_token: metaToken,
+                    }
+                });
+                if (exchangeRes.data.access_token) {
+                    metaToken = exchangeRes.data.access_token;
+                    console.log('✅ Meta token exchanged for long-lived token');
+                }
+            } catch (e) {
+                console.log('Meta token exchange skipped:', e.response?.data?.error?.message || e.message);
+            }
+        }
+
         const { error } = await supabaseAdmin.from('user_settings').upsert({
             user_id: userId,
             theme: settings.theme,
@@ -57,7 +78,7 @@ app.post('/api/settings/save', async (req, res) => {
             google_customer_id: settings.googleId,
             google_login_customer_id: settings.googleLoginId,
             meta_ad_account_id: settings.metaId,
-            meta_access_token: settings.metaAccessToken,
+            meta_access_token: metaToken,
             lead_value: Number(settings.leadValue)
         }, { onConflict: 'user_id' });
         if (error) throw error;
